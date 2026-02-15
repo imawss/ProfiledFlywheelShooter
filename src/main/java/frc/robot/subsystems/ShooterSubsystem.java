@@ -140,7 +140,7 @@ public class ShooterSubsystem extends SubsystemBase {
         return getEstimatedRPM() * ShooterConstants.GEAR_RATIO;
     }
     
-    private double getEstim"atedRPM() {
+    private double getEstimatedRPM() {
 
         return (commandedVoltage / MAX_VOLTAGE) * CIM_FREE_SPEED_RPM / ShooterConstants.GEAR_RATIO;
     }
