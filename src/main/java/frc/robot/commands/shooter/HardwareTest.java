@@ -4,15 +4,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj.Timer;
 import frc.robot.subsystems.ShooterSubsystem;
 
-/**
- * FIRST TEST COMMAND - Run this tomorrow to verify hardware works.
- * 
- * Tests multiple RPM values for 3 seconds each.
- * Watch dashboard to verify:
- * - Motors spin
- * - Encoder reads velocity
- * - RPM reaches target
- */
 public class HardwareTest extends Command {
     private final ShooterSubsystem shooter;
     
@@ -20,7 +11,7 @@ public class HardwareTest extends Command {
     private int currentTestIndex = 0;
     private double testStartTime = 0.0;
     
-    private static final double TEST_DURATION = 3.0; // seconds per RPM
+    private static final double TEST_DURATION = 3.0; 
     
     public HardwareTest(ShooterSubsystem shooter) {
         this.shooter = shooter;

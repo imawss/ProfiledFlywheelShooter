@@ -28,24 +28,17 @@ public class ShooterSubsystem extends SubsystemBase {
     private double commandedVoltage = 0.0;
     private boolean motorConfigured = false;
     
-    // CIM motor constants (adjust if needed)
-    private static final double CIM_FREE_SPEED_RPM = 5330.0;  // At 12V
+    private static final double CIM_FREE_SPEED_RPM = 5330.0;  
     private static final double MAX_VOLTAGE = 12.0;
     
     public ShooterSubsystem() {
-        // ========================================
-        // MOTOR SETUP - Open Loop (No Encoder)
-        // ========================================
         motor = new SparkMax(ShooterConstants.MOTOR_ID, MotorType.kBrushed);
-        
-        // Create configuration
+
         SparkMaxConfig config = new SparkMaxConfig();
         
-        // NO PID - we're doing open loop voltage control
         config.idleMode(IdleMode.kCoast);
         config.smartCurrentLimit(40);
-        
-        // Voltage compensation - keeps consistent speed as battery drains
+
         config.voltageCompensation(12.0);
         
         motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
@@ -56,10 +49,7 @@ public class ShooterSubsystem extends SubsystemBase {
             "Shooter: Open-loop mode (NO ENCODER) - ID " + ShooterConstants.MOTOR_ID,
             false
         );
-        
-        // ========================================
-        // PROFILE SETUP
-        // ========================================
+
         availableProfiles = ShooterConstants.createAllProfiles();
         profileChooser = new SendableChooser<>();
         
@@ -87,13 +77,12 @@ public class ShooterSubsystem extends SubsystemBase {
     
     @Override
     public void periodic() {
-        // Profile selection
+
         String selectedProfileName = profileChooser.getSelected();
         if (selectedProfileName != null && !selectedProfileName.equals(lastSelectedProfileName)) {
             setActiveProfile(selectedProfileName);
         }
 
-        // Telemetry
         if (!motorConfigured) {
             SmartDashboard.putBoolean("Shooter/Motor Configured", false);
         }
@@ -112,10 +101,6 @@ public class ShooterSubsystem extends SubsystemBase {
         }
     }
     
-    // ========================================
-    // PUBLIC API
-    // ========================================
-    
     public void setVelocityForDistance(double distanceMeters) {
         if (activeProfile == null) {
             DriverStation.reportError("No active shooter profile", false);
@@ -129,31 +114,15 @@ public class ShooterSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("Shooter/Last Commanded RPM", wheelRPM);
     }
     
-    /**
-     * Set shooter velocity in RPM using open-loop voltage control.
-     * 
-     * ⚠️ WITHOUT ENCODER: This is an ESTIMATE based on motor characteristics.
-     * Actual speed will vary with:
-     * - Battery voltage
-     * - Motor load
-     * - Motor wear
-     * 
-     * @param wheelRPM target wheel surface speed in RPM
-     */
     public void setVelocityRPM(double wheelRPM) {
         targetRPM = wheelRPM;
-        
-        // Convert wheel RPM to motor RPM
+
         double motorRPM = wheelRPM * ShooterConstants.GEAR_RATIO;
-        
-        // Calculate voltage needed
-        // V = (RPM / FREE_SPEED_RPM) * MAX_VOLTAGE
+
         commandedVoltage = (motorRPM / CIM_FREE_SPEED_RPM) * MAX_VOLTAGE;
-        
-        // Apply limits
+
         commandedVoltage = Math.max(-MAX_VOLTAGE, Math.min(MAX_VOLTAGE, commandedVoltage));
-        
-        // Set voltage
+
         motor.setVoltage(commandedVoltage);
     }
     
@@ -162,39 +131,24 @@ public class ShooterSubsystem extends SubsystemBase {
         commandedVoltage = 0.0;
         motor.setVoltage(0);
     }
-    
-    /**
-     * Get estimated wheel RPM (calculated from voltage, not measured).
-     * ⚠️ This is an ESTIMATE - actual speed may differ!
-     */
+
     public double getWheelRPM() {
         return getEstimatedRPM();
     }
     
-    /**
-     * Get estimated motor RPM based on commanded voltage.
-     * ⚠️ NOT measured - just calculation!
-     */
     public double getMotorRPM() {
         return getEstimatedRPM() * ShooterConstants.GEAR_RATIO;
     }
     
     private double getEstim"atedRPM() {
-        // Estimate based on voltage
-        // RPM = (Voltage / MAX_VOLTAGE) * FREE_SPEED_RPM / GEAR_RATIO
+
         return (commandedVoltage / MAX_VOLTAGE) * CIM_FREE_SPEED_RPM / ShooterConstants.GEAR_RATIO;
     }
     
-    /**
-     * ⚠️ In open loop mode, we can't actually measure if we're at target.
-     * This assumes we reach target after 1 second.
-     */
     public boolean atTargetVelocity() {
         if (targetRPM == 0.0) return false;
-        
-        // Without encoder, we just wait 1 second and assume we're there
-        // This is a hack but necessary without feedback
-        return commandedVoltage != 0.0; // Instantly "ready" for testing
+
+        return commandedVoltage != 0.0; 
     }
     
     public boolean isDistanceInRange(double distanceMeters) {
@@ -209,10 +163,6 @@ public class ShooterSubsystem extends SubsystemBase {
     public double getActiveProfileAngle() {
         return activeProfile != null ? activeProfile.getAngleDegrees() : 0.0;
     }
-    
-    // ========================================
-    // PROFILE MANAGEMENT
-    // ========================================
     
     public void setActiveProfile(String profileName) {
         if (!availableProfiles.containsKey(profileName)) {
@@ -235,10 +185,6 @@ public class ShooterSubsystem extends SubsystemBase {
             false
         );
     }
-    
-    // ========================================
-    // PRIVATE HELPERS
-    // ========================================
     
     private double getRPMForDistance(double distance) {
         if (activeProfile == null) {

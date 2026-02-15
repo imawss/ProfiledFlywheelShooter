@@ -29,10 +29,7 @@ public class RobotContainer {
     }
     
     private void configureBindings() {
-        // ========================================
-        // FIXED DISTANCE SHOOTING
-        // ========================================
-        
+
         // A = Shoot at 2.0m (SpinUpForDistance already runs intake)
         operator.a().onTrue(
             Commands.sequence(
@@ -69,15 +66,6 @@ public class RobotContainer {
             )
         );
         
-        // ========================================
-        // VISION SHOOTING
-        // ========================================
-        
-        // Right Trigger = Vision tracking (already runs intake)
-        
-        // ========================================
-        // MANUAL INTAKE CONTROL
-        // ========================================
         
         // Left Trigger = Manual intake ONLY (no shooter)
         operator.leftTrigger(0.5).whileTrue(
@@ -97,9 +85,6 @@ public class RobotContainer {
             )
         );
         
-        // ========================================
-        // VARIABLE DISTANCE TESTING
-        // ========================================
         
         // D-Pad Up = Increase test distance
         operator.povUp().onTrue(
@@ -138,10 +123,6 @@ public class RobotContainer {
             )
         );
         
-        // ========================================
-        // EMERGENCY STOP
-        // ========================================
-        
         // X = STOP EVERYTHING
         operator.x().onTrue(
             Commands.runOnce(() -> {
@@ -170,8 +151,7 @@ public class RobotContainer {
             Commands.print("[Auto] Complete")
         );
     }
-    
-    // Mock vision
+
     private static class VisionSimulator {
         public double getDistance() {
             return 3.0;

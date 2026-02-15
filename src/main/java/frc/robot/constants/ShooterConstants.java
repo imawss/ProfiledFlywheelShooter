@@ -9,40 +9,25 @@ import java.util.Map;
 
 public final class ShooterConstants {
     private ShooterConstants() {}
+ 
+    public static final int MOTOR_ID = 1; 
     
-    // ========================================
-    // HARDWARE - Single CIM with Spark MAX
-    // ========================================
-    public static final int MOTOR_ID = 1;  // YOUR CAN ID
-    
-    // Mechanism properties
-    public static final double GEAR_RATIO = 1.5;  // YOUR ACTUAL GEAR RATIO
+    public static final double GEAR_RATIO = 1.5;  
     public static final double WHEEL_DIAMETER_METERS = Units.inchesToMeters(4.0);
 
-    // ========================================
-    // CONTROL - CIM tuning
-    // ========================================
-    public static final double kP = 0.0001;   // Start low, tune on hardware
+    public static final double kP = 0.0001;  
     public static final double kI = 0.0;
     public static final double kD = 0.0;
-    public static final double kFF = 0.0002; // Feedforward for velocity
+    public static final double kFF = 0.0002; 
     
     public static final double VELOCITY_TOLERANCE_RPM = 100.0;
 
-    // Safety limit (start at 50%, increase as needed)
     public static final double MAX_OUTPUT = 0.8;
     
-    // ========================================
-    // PHYSICAL MEASUREMENTS
-    // ========================================
     public static final double LAUNCH_HEIGHT_METERS = 0.58;
     public static final double TARGET_HEIGHT_METERS = 2.05;
 
     public static final String DEFAULT_PROFILE_NAME = "BALANCED";
-    
-    // ========================================
-    // PROFILES
-    // ========================================
     
     public static Map<String, ShooterProfile> createAllProfiles() {
         Map<String, ShooterProfile> profiles = new HashMap<>();

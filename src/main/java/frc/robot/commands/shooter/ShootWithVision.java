@@ -5,20 +5,10 @@ import frc.robot.subsystems.ShooterSubsystem;
 
 import java.util.function.DoubleSupplier;
 
-/**
- * Continuously adjust shooter speed based on distance from vision.
- * 
- * USE CASE: Teleop shooting while robot moves
- * Automatically tracks target and adjusts RPM as distance changes.
- */
 public class ShootWithVision extends Command {
     private final ShooterSubsystem shooter;
     private final DoubleSupplier distanceSupplier;
-    
-    /**
-     * @param shooter shooter subsystem
-     * @param distanceSupplier function that returns current distance (from vision)
-     */
+
     public ShootWithVision(ShooterSubsystem shooter, DoubleSupplier distanceSupplier) {
         this.shooter = shooter;
         this.distanceSupplier = distanceSupplier;
@@ -32,10 +22,7 @@ public class ShootWithVision extends Command {
     
     @Override
     public void execute() {
-        // Get current distance from vision
         double distance = distanceSupplier.getAsDouble();
-        
-        // Update shooter velocity every loop (20ms)
         shooter.setVelocityForDistance(distance);
     }
     
