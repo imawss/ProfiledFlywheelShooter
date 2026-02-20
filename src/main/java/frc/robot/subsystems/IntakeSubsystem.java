@@ -13,6 +13,8 @@ public class IntakeSubsystem extends SubsystemBase {
     private final SparkMax motor;
     
     private static final int INTAKE_MOTOR_ID = 2;
+    private static final double RPM = 5330.0;
+    private double realRPM;
     
     public IntakeSubsystem() {
         motor = new SparkMax(INTAKE_MOTOR_ID, MotorType.kBrushed);
@@ -25,7 +27,8 @@ public class IntakeSubsystem extends SubsystemBase {
     }
     
     public void setSpeed(double speed) {
-        motor.set(speed);
+        double rpmSel = speed * 1.0 / RPM;
+        motor.set(rpmSel);
     }
     
     public void stop() {

@@ -6,6 +6,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import frc.robot.commands.shooter.SpinUpForDistance;
+import frc.robot.constants.ShooterConstants;
 import frc.robot.commands.shooter.ShootWithVision;
 import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
@@ -67,25 +68,27 @@ public class RobotContainer {
         );
         
         
-        // Left Trigger = Manual intake ONLY (no shooter)
-        operator.leftTrigger(0.5).whileTrue(
-            Commands.run(() -> intake.setSpeed(0.8), intake)
+        // Left Trigger
+        operator.leftTrigger().onTrue(
+            Commands.parallel(
+            Commands.run(() -> intake.setSpeed(5330), intake),
+            Commands.run(() -> shooter.setMotorRPM(5330), shooter)
+            )
         );
         
         // Left Bumper = Eject
         operator.leftBumper().whileTrue(
-            Commands.run(() -> intake.setSpeed(-0.5), intake)
+            Commands.run(() -> intake.setSpeed(-5330), intake)
         );
         
         // Right Bumper = Manual shooter test (3000 RPM with intake)
         operator.rightBumper().whileTrue(
             Commands.parallel(
-                Commands.run(() -> shooter.setVelocityRPM(3000), shooter),
-                Commands.run(() -> intake.setSpeed(0.5), intake)
+                Commands.run(() -> shooter.setMotorRPM(3000), shooter),
+                Commands.run(() -> intake.setSpeed(2665), intake)
             )
         );
-        
-        
+                
         // D-Pad Up = Increase test distance
         operator.povUp().onTrue(
             Commands.runOnce(() -> {
