@@ -1,11 +1,10 @@
 package frc.robot.subsystems;
 
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-import com.revrobotics.spark.config.SparkMaxConfig;
-import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
-import com.revrobotics.spark.SparkBase.PersistMode;
-import com.revrobotics.spark.SparkBase.ResetMode;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Timer;
@@ -17,43 +16,42 @@ import frc.robot.constants.ShooterConstants;
 import java.util.Map;
 
 public class ShooterSubsystem extends SubsystemBase {
-    private final SparkMax motor;
+
+    private final TalonFX motor;
+
+    private final VelocityVoltage velocityRequest =
+        new VelocityVoltage(0).withSlot(0).withEnableFOC(false);
 
     private final Map<String, ShooterProfile> availableProfiles;
-    private final SendableChooser<String> profileChooser;
+    private final SendableChooser<String>     profileChooser;
     private ShooterProfile activeProfile;
     private String lastSelectedProfileName = "";
 
-    private double targetRPM = 0.0;
-    private double commandedVoltage = 0.0;
+    private double  targetWheelRPM = 0.0;
     private boolean motorConfigured = false;
 
-    private static final double MAX_VOLTAGE = 12.0;
-
     private static final double SPINUP_WAIT_SECONDS = 0.75;
-
-    private double spinupStartTime = -1.0;
-    private boolean isSpinningUp = false;
+    private double  spinupStartTime = -1.0;
+    private boolean isSpinningUp    = false;
 
     public ShooterSubsystem() {
-        motor = new SparkMax(ShooterConstants.MOTOR_ID, MotorType.kBrushed);
+        motor = new TalonFX(ShooterConstants.MOTOR_ID);
 
-        SparkMaxConfig config = new SparkMaxConfig();
-        config.idleMode(IdleMode.kCoast);
+        TalonFXConfiguration config = new TalonFXConfiguration();
+        config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
 
-        config.smartCurrentLimit(40);
-        config.voltageCompensation(12.0);
+        Slot0Configs slot0 = config.Slot0;
+        slot0.kP = ShooterConstants.kP_TALON;
+        slot0.kI = ShooterConstants.kI_TALON;
+        slot0.kD = ShooterConstants.kD_TALON;
+        slot0.kV = ShooterConstants.kV_TALON;
+        slot0.kS = ShooterConstants.kS_TALON;
 
-        config.inverted(true);
-
-        motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        motor.getConfigurator().apply(config);
         motorConfigured = true;
 
-        DriverStation.reportWarning(
-            "Shooter: Open-loop mode (NO ENCODER) - ID " + ShooterConstants.MOTOR_ID, false);
-
         availableProfiles = ShooterConstants.createAllProfiles();
-        profileChooser = new SendableChooser<>();
+        profileChooser    = new SendableChooser<>();
 
         boolean defaultSet = false;
         for (Map.Entry<String, ShooterProfile> entry : availableProfiles.entrySet()) {
@@ -69,7 +67,6 @@ public class ShooterSubsystem extends SubsystemBase {
 
         SmartDashboard.putData("Shooter/Profile Selector", profileChooser);
         setActiveProfile(ShooterConstants.DEFAULT_PROFILE_NAME);
-
         SmartDashboard.putNumber("Shooter/Spinup Wait (s)", SPINUP_WAIT_SECONDS);
     }
 
@@ -80,25 +77,34 @@ public class ShooterSubsystem extends SubsystemBase {
             setActiveProfile(selectedProfileName);
         }
 
-        SmartDashboard.putNumber("Shooter/Target RPM", targetRPM);
-        SmartDashboard.putNumber("Shooter/Estimated RPM", getEstimatedRPM());
-        SmartDashboard.putNumber("Shooter/Commanded Voltage", commandedVoltage);
-        SmartDashboard.putNumber("Shooter/Motor Current (A)", motor.getOutputCurrent());
-        SmartDashboard.putBoolean("Shooter/Open Loop Mode", true);
-
-        // ─── DÜZELTME 5: Spinup durumu dashboard'da görünür ─────────────────
-        double elapsed = isSpinningUp ? (Timer.getFPGATimestamp() - spinupStartTime) : 0.0;
         double waitTime = SmartDashboard.getNumber("Shooter/Spinup Wait (s)", SPINUP_WAIT_SECONDS);
-        SmartDashboard.putBoolean("Shooter/At Target", atTargetVelocity());
-        SmartDashboard.putNumber("Shooter/Spinup Elapsed (s)", elapsed);
+
+        if (isSpinningUp) {
+            double elapsed = Timer.getFPGATimestamp() - spinupStartTime;
+            if (elapsed >= waitTime && atTargetVelocity()) {
+                isSpinningUp = false;
+            }
+        }
+
+        double elapsed = isSpinningUp ? (Timer.getFPGATimestamp() - spinupStartTime) : 0.0;
+
+        SmartDashboard.putNumber("Shooter/Target Wheel RPM",targetWheelRPM);
+        SmartDashboard.putNumber("Shooter/Target Motor RPM",targetWheelRPM * ShooterConstants.GEAR_RATIO);
+        SmartDashboard.putNumber("Shooter/Actual Wheel RPM",getWheelRPM());
+        SmartDashboard.putNumber("Shooter/Actual Motor RPM",getMotorRPM());
+        SmartDashboard.putNumber("Shooter/RPM Error",targetWheelRPM - getWheelRPM());
+        SmartDashboard.putBoolean("Shooter/At Target",atTargetVelocity());
+        SmartDashboard.putBoolean("Shooter/Is Spinning Up",isSpinningUp);
+        SmartDashboard.putNumber("Shooter/Spinup Elapsed (s)",elapsed);
         SmartDashboard.putNumber("Shooter/Spinup Remaining (s)",
             isSpinningUp ? Math.max(0, waitTime - elapsed) : 0.0);
+        SmartDashboard.putBoolean("Shooter/Motor Configured",motorConfigured);
 
         if (activeProfile != null) {
-            SmartDashboard.putString("Shooter/Active Profile", activeProfile.getName());
-            SmartDashboard.putNumber("Shooter/Profile Angle (deg)", activeProfile.getAngleDegrees());
-            SmartDashboard.putNumber("Shooter/Profile Min Dist (m)", activeProfile.getMinSafeDistance());
-            SmartDashboard.putNumber("Shooter/Profile Max Dist (m)", activeProfile.getMaxSafeDistance());
+            SmartDashboard.putString("Shooter/Active Profile",activeProfile.getName());
+            SmartDashboard.putNumber("Shooter/Profile Angle (deg)",activeProfile.getAngleDegrees());
+            SmartDashboard.putNumber("Shooter/Profile Min Dist (m)",activeProfile.getMinSafeDistance());
+            SmartDashboard.putNumber("Shooter/Profile Max Dist (m)",activeProfile.getMaxSafeDistance());
         }
     }
 
@@ -109,58 +115,39 @@ public class ShooterSubsystem extends SubsystemBase {
         }
         double wheelRPM = getRPMForDistance(distanceMeters);
         setVelocityRPM(wheelRPM);
-
-        SmartDashboard.putNumber("Shooter/Last Distance (m)", distanceMeters);
-        SmartDashboard.putNumber("Shooter/Last Commanded RPM", wheelRPM);
+        SmartDashboard.putNumber("Shooter/Last Distance (m)",distanceMeters);
+        SmartDashboard.putNumber("Shooter/Last Commanded RPM",wheelRPM);
     }
 
     public void setVelocityRPM(double wheelRPM) {
-        targetRPM = wheelRPM;
-        
-        double motorRPM = wheelRPM * ShooterConstants.GEAR_RATIO;
-
-        double rawVoltage = (motorRPM / ShooterConstants.CIM_FREE_SPEED_RPM) * MAX_VOLTAGE;
-
-        double maxAllowedVoltage = MAX_VOLTAGE * ShooterConstants.MAX_OUTPUT;
-        commandedVoltage = Math.max(0.0, Math.min(maxAllowedVoltage, rawVoltage));
-
-        motor.setVoltage(commandedVoltage);
-
+        targetWheelRPM = wheelRPM;
+        double motorRPS = (wheelRPM * ShooterConstants.GEAR_RATIO) / 60.0;
+        motor.setControl(velocityRequest.withVelocity(motorRPS));
         spinupStartTime = Timer.getFPGATimestamp();
-        isSpinningUp = true;
-    }
-
-    public void setMotorRPM(double motorRPM){
-        double wheelRPM = motorRPM / ShooterConstants.GEAR_RATIO;
-        setVelocityRPM(wheelRPM);
+        isSpinningUp    = true;
     }
 
     public void stop() {
-        targetRPM = 0.0;
-        commandedVoltage = 0.0;
-        isSpinningUp = false;
+        motor.stopMotor();
+        targetWheelRPM  = 0.0;
+        isSpinningUp    = false;
         spinupStartTime = -1.0;
-        motor.setVoltage(0);
     }
 
     public double getWheelRPM() {
-        return getEstimatedRPM();
+        return getMotorRPM() / ShooterConstants.GEAR_RATIO;
     }
 
     public double getMotorRPM() {
-        return getEstimatedRPM() * ShooterConstants.GEAR_RATIO;
-    }
-
-    private double getEstimatedRPM() {
-        return (commandedVoltage / MAX_VOLTAGE) * ShooterConstants.CIM_FREE_SPEED_RPM / ShooterConstants.GEAR_RATIO;
+        return motor.getVelocity().getValueAsDouble() * 60.0;
     }
 
     public boolean atTargetVelocity() {
-        if (targetRPM == 0.0 || !isSpinningUp) return false;
-
-        double waitTime = SmartDashboard.getNumber("Shooter/Spinup Wait (s)", SPINUP_WAIT_SECONDS);
-        double elapsed = Timer.getFPGATimestamp() - spinupStartTime;
-        return elapsed >= waitTime;
+        if (targetWheelRPM == 0.0) return false;
+        return Math.abs(getWheelRPM() - targetWheelRPM) < ShooterConstants.VELOCITY_TOLERANCE_RPM;
+    }
+    public boolean isReadyToShoot() {
+        return atTargetVelocity() && !isSpinningUp;
     }
 
     public boolean isDistanceInRange(double distanceMeters) {
@@ -178,19 +165,15 @@ public class ShooterSubsystem extends SubsystemBase {
 
     public void setActiveProfile(String profileName) {
         if (!availableProfiles.containsKey(profileName)) {
-            DriverStation.reportError(
-                "Profile '" + profileName + "' not found. Using default.", false);
+            DriverStation.reportError("Profile '" + profileName + "' not found. Using default.", false);
             profileName = ShooterConstants.DEFAULT_PROFILE_NAME;
         }
-        activeProfile = availableProfiles.get(profileName);
+        activeProfile           = availableProfiles.get(profileName);
         lastSelectedProfileName = profileName;
-
         DriverStation.reportWarning(
-            String.format("Shooter profile: %s (%.1f°, %.1f-%.1fm)",
-                activeProfile.getName(),
-                activeProfile.getAngleDegrees(),
-                activeProfile.getMinSafeDistance(),
-                activeProfile.getMaxSafeDistance()),
+            String.format("Shooter profile: %s (%.1f deg, %.1f-%.1fm)",
+                activeProfile.getName(), activeProfile.getAngleDegrees(),
+                activeProfile.getMinSafeDistance(), activeProfile.getMaxSafeDistance()),
             false);
     }
 
@@ -200,16 +183,14 @@ public class ShooterSubsystem extends SubsystemBase {
             return 3500.0;
         }
         if (distance < activeProfile.getMinSafeDistance()) {
-            DriverStation.reportWarning(
-                String.format("Distance %.2fm below min %.2fm - using edge value",
-                    distance, activeProfile.getMinSafeDistance()), false);
+            DriverStation.reportWarning(String.format(
+                "Distance %.2fm below min %.2fm - clamping", distance, activeProfile.getMinSafeDistance()), false);
             SmartDashboard.putBoolean("Shooter/Distance In Range", false);
             return activeProfile.getRPMForDistance(activeProfile.getMinSafeDistance());
         }
         if (distance > activeProfile.getMaxSafeDistance()) {
-            DriverStation.reportWarning(
-                String.format("Distance %.2fm exceeds max %.2fm - using edge value",
-                    distance, activeProfile.getMaxSafeDistance()), false);
+            DriverStation.reportWarning(String.format(
+                "Distance %.2fm exceeds max %.2fm - clamping", distance, activeProfile.getMaxSafeDistance()), false);
             SmartDashboard.putBoolean("Shooter/Distance In Range", false);
             return activeProfile.getRPMForDistance(activeProfile.getMaxSafeDistance());
         }

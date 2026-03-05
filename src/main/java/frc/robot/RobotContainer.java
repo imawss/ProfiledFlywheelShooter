@@ -6,108 +6,82 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import frc.robot.commands.shooter.SpinUpForDistance;
-import frc.robot.constants.ShooterConstants;
-import frc.robot.commands.shooter.ShootWithVision;
+import frc.robot.commands.intake.ExtendIntake;
+import frc.robot.commands.intake.RetractIntake;
 import frc.robot.subsystems.ShooterSubsystem;
 import frc.robot.subsystems.IntakeSubsystem;
 
 import java.util.Set;
 
 public class RobotContainer {
-    // Subsystems
+
     private final ShooterSubsystem shooter = new ShooterSubsystem();
-    private final IntakeSubsystem intake = new IntakeSubsystem();
-    
-    // Controllers
+    private final IntakeSubsystem  intake  = new IntakeSubsystem();
     private final CommandXboxController operator = new CommandXboxController(0);
-    
-    // Vision (replace with real)
-    private VisionSimulator vision = new VisionSimulator();
-    
+    private final VisionSimulator vision = new VisionSimulator();
+
     public RobotContainer() {
         configureBindings();
         setupDashboard();
     }
-    
+
     private void configureBindings() {
 
-        // A = Shoot at 2.0m (SpinUpForDistance already runs intake)
-        operator.a().onTrue(
-            Commands.sequence(
-                new SpinUpForDistance(shooter, intake, 2.0),  // Spins up shooter + runs intake
-                Commands.waitSeconds(0.5),  // Hold for shot
-                Commands.runOnce(() -> {
-                    shooter.stop();
-                    intake.stop();
-                }, shooter, intake)
+        operator.povUp().whileTrue(
+            Commands.parallel(
+                new ExtendIntake(intake),
+                Commands.run(() -> shooter.setVelocityRPM(4000), shooter)
             )
         );
-        
-        // B = Shoot at 3.0m
+
+        operator.povDown().whileTrue(
+            Commands.sequence(
+                Commands.runOnce(() -> shooter.stop(), shooter),
+                new RetractIntake(intake)
+            )
+        );
+
         operator.b().onTrue(
             Commands.sequence(
                 new SpinUpForDistance(shooter, intake, 3.0),
                 Commands.waitSeconds(0.5),
-                Commands.runOnce(() -> {
-                    shooter.stop();
-                    intake.stop();
-                }, shooter, intake)
+                Commands.runOnce(() -> { shooter.stop(); intake.stop(); }, shooter, intake)
             )
         );
-        
-        // Y = Shoot at 4.0m
+
         operator.y().onTrue(
             Commands.sequence(
                 new SpinUpForDistance(shooter, intake, 4.0),
                 Commands.waitSeconds(0.5),
-                Commands.runOnce(() -> {
-                    shooter.stop();
-                    intake.stop();
-                }, shooter, intake)
+                Commands.runOnce(() -> { shooter.stop(); intake.stop(); }, shooter, intake)
             )
         );
-        
-        
-        // Left Trigger
-        operator.leftTrigger().onTrue(
-            Commands.parallel(
-            Commands.run(() -> intake.setSpeed(5330), intake),
-            Commands.run(() -> shooter.setMotorRPM(5330), shooter)
-            )
+
+        operator.leftTrigger().whileTrue(
+            Commands.run(() -> shooter.setVelocityRPM(6000), shooter)
         );
-        
-        // Left Bumper = Eject
+
+        operator.rightTrigger().onTrue(
+            Commands.runOnce(() -> shooter.stop(), shooter)
+        );
+
         operator.leftBumper().whileTrue(
-            Commands.run(() -> intake.setSpeed(-5330), intake)
+            Commands.run(() -> intake.extend(), intake)
         );
-        
-        // Right Bumper = Manual shooter test (3000 RPM with intake)
+
         operator.rightBumper().whileTrue(
-            Commands.parallel(
-                Commands.run(() -> shooter.setMotorRPM(3000), shooter),
-                Commands.run(() -> intake.setSpeed(2665), intake)
-            )
+            Commands.run(() -> intake.retract(), intake)
         );
-                
-        // D-Pad Up = Increase test distance
-        operator.povUp().onTrue(
+
+        operator.back().onTrue(
             Commands.runOnce(() -> {
                 double current = SmartDashboard.getNumber("Test Distance (m)", 2.0);
-                SmartDashboard.putNumber("Test Distance (m)", current + 0.5);
-                System.out.printf("Test distance: %.1fm%n", current + 0.5);
+                double next = Math.max(1.0, current - 0.5);
+                SmartDashboard.putNumber("Test Distance (m)", next);
+                System.out.printf("Test distance: %.1fm%n", next);
             })
         );
-        
-        // D-Pad Down = Decrease test distance
-        operator.povDown().onTrue(
-            Commands.runOnce(() -> {
-                double current = SmartDashboard.getNumber("Test Distance (m)", 2.0);
-                SmartDashboard.putNumber("Test Distance (m)", Math.max(1.0, current - 0.5));
-                System.out.printf("Test distance: %.1fm%n", Math.max(1.0, current - 0.5));
-            })
-        );
-        
-        // Start = Shoot at test distance
+
         operator.start().onTrue(
             Commands.sequence(
                 Commands.runOnce(() -> {
@@ -117,16 +91,12 @@ public class RobotContainer {
                 Commands.defer(() -> {
                     double dist = SmartDashboard.getNumber("Test Distance (m)", 2.0);
                     return new SpinUpForDistance(shooter, intake, dist);
-                }, Set.of(shooter, intake)),  // ← Both subsystems
+                }, Set.of(shooter, intake)),
                 Commands.waitSeconds(0.5),
-                Commands.runOnce(() -> {
-                    shooter.stop();
-                    intake.stop();
-                }, shooter, intake)
+                Commands.runOnce(() -> { shooter.stop(); intake.stop(); }, shooter, intake)
             )
         );
-        
-        // X = STOP EVERYTHING
+
         operator.x().onTrue(
             Commands.runOnce(() -> {
                 shooter.stop();
@@ -135,29 +105,24 @@ public class RobotContainer {
             }, shooter, intake)
         );
     }
-    
+
     private void setupDashboard() {
         SmartDashboard.putNumber("Test Distance (m)", 2.5);
-        SmartDashboard.putString("Shooter/Controls", 
-            "A/B/Y=Shoot | RT=Vision | LT=Intake | LB=Eject | X=STOP");
+        SmartDashboard.putString("Shooter/Controls",
+            "B/Y=Shoot | LT(hold)=Spin | RT=Stop | LB=Extend | RB=Retract | Back=DistDown | Start=TestShot | X=ESTOP");
     }
-    
+
     public Command getAutonomousCommand() {
         return Commands.sequence(
             Commands.print("[Auto] Starting shot"),
-            new SpinUpForDistance(shooter, intake, 2.5),  // Already runs both
+            new SpinUpForDistance(shooter, intake, 2.5),
             Commands.waitSeconds(1.0),
-            Commands.runOnce(() -> {
-                shooter.stop();
-                intake.stop();
-            }, shooter, intake),
+            Commands.runOnce(() -> { shooter.stop(); intake.stop(); }, shooter, intake),
             Commands.print("[Auto] Complete")
         );
     }
 
     private static class VisionSimulator {
-        public double getDistance() {
-            return 3.0;
-        }
+        public double getDistance() { return 3.0; }
     }
 }

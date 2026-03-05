@@ -10,14 +10,17 @@ import java.util.Map;
 public final class ShooterConstants {
     private ShooterConstants() {}
 
-    public static final int MOTOR_ID = 1;
+    public static final int MOTOR_ID = 0;
 
-    public static final double GEAR_RATIO = 1.5;
+    public static final double GEAR_RATIO = 1.0;
     public static final double WHEEL_DIAMETER_METERS = Units.inchesToMeters(4.0);
 
-    public static final double kP = 0.0001;
-    public static final double kI = 0.0;
-    public static final double kD = 0.0;
+    public static final double kP_TALON = 0.05;
+    public static final double kI_TALON = 0.0;
+    public static final double kD_TALON = 0.0;
+    public static final double kV_TALON = 0.12;
+    public static final double kS_TALON = 0.10;
+
     public static final double kFF = 0.0002;
     public static final double CIM_FREE_SPEED_RPM = 5330.0;
 
