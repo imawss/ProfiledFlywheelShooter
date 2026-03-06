@@ -21,6 +21,8 @@ public final class ShooterConstants {
     public static final double kV_TALON = 0.12;
     public static final double kS_TALON = 0.10;
 
+    public static final double SPINUP_WAIT_SECONDS = 0.75;
+
     public static final double kFF = 0.0002;
     public static final double CIM_FREE_SPEED_RPM = 5330.0;
 
