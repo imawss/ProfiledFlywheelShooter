@@ -23,16 +23,15 @@ public class ShooterSubsystem extends SubsystemBase {
         new VelocityVoltage(0).withSlot(0).withEnableFOC(false);
 
     private final Map<String, ShooterProfile> availableProfiles;
-    private final SendableChooser<String>     profileChooser;
+    private final SendableChooser<String> profileChooser;
     private ShooterProfile activeProfile;
     private String lastSelectedProfileName = "";
 
     private double  targetWheelRPM = 0.0;
     private boolean motorConfigured = false;
 
-    private static final double SPINUP_WAIT_SECONDS = 0.75;
     private double  spinupStartTime = -1.0;
-    private boolean isSpinningUp    = false;
+    private boolean isSpinningUp = false;
 
     public ShooterSubsystem() {
         motor = new TalonFX(ShooterConstants.MOTOR_ID);
@@ -67,7 +66,7 @@ public class ShooterSubsystem extends SubsystemBase {
 
         SmartDashboard.putData("Shooter/Profile Selector", profileChooser);
         setActiveProfile(ShooterConstants.DEFAULT_PROFILE_NAME);
-        SmartDashboard.putNumber("Shooter/Spinup Wait (s)", SPINUP_WAIT_SECONDS);
+        SmartDashboard.putNumber("Shooter/Spinup Wait (s)", ShooterConstants.SPINUP_WAIT_SECONDS);
     }
 
     @Override
@@ -77,7 +76,7 @@ public class ShooterSubsystem extends SubsystemBase {
             setActiveProfile(selectedProfileName);
         }
 
-        double waitTime = SmartDashboard.getNumber("Shooter/Spinup Wait (s)", SPINUP_WAIT_SECONDS);
+        double waitTime = SmartDashboard.getNumber("Shooter/Spinup Wait (s)", ShooterConstants.SPINUP_WAIT_SECONDS);
 
         if (isSpinningUp) {
             double elapsed = Timer.getFPGATimestamp() - spinupStartTime;
@@ -124,13 +123,13 @@ public class ShooterSubsystem extends SubsystemBase {
         double motorRPS = (wheelRPM * ShooterConstants.GEAR_RATIO) / 60.0;
         motor.setControl(velocityRequest.withVelocity(motorRPS));
         spinupStartTime = Timer.getFPGATimestamp();
-        isSpinningUp    = true;
+        isSpinningUp = true;
     }
 
     public void stop() {
         motor.stopMotor();
         targetWheelRPM  = 0.0;
-        isSpinningUp    = false;
+        isSpinningUp = false;
         spinupStartTime = -1.0;
     }
 
